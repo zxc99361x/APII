@@ -1,56 +1,53 @@
 from flask import Blueprint, request, jsonify
 from models import User
 from extensions import db, bcrypt
+from flask_jwt_extended import create_access_token
 
 # 建立一個藍圖
 # 'auth' 是這個藍圖的名字
 # url_prefix='/api/auth' 代表這個檔案中所有的路由都會自動加上 /api/auth 的前綴
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
-# --- 建立 /api/auth/register 路由 ---
-# methods=['POST'] 代表這個端點只接受 POST 請求
-@auth_bp.route('/register', methods=['POST'])
-def register():
-    # 1. 從請求中獲取 JSON 資料
+# --- 建立 /api/auth/login 路由 ---
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    # 1. 獲取 JSON 資料
     data = request.get_json()
-
-    # 2. 從 JSON 中取出 email 和 password
     email = data.get('email')
     password = data.get('password')
-    username = data.get('username') # 我們也順便拿一下 username
 
-    # 3. 檢查資料是否齊全
-    if not email or not password or not username:
-        return jsonify({ "error": "Email, password 和 username 都是必須的" }), 400
+    # 2. 檢查資料是否齊全
+    if not email or not password:
+        return jsonify({ "error": "Email 和 password 都是必須的" }), 400
 
-    # 4. 檢查 Email 是否已被註冊
-    if User.query.filter_by(email=email).first():
-        return jsonify({ "error": "這個 Email 已經被註冊" }), 409
+    # 3. [關鍵] 檢查使用者是否存在
+    # 我們用 email 去資料庫裡找人
+    user = User.query.filter_by(email=email).first()
 
-    # 5. [關鍵] 將密碼加密 (雜湊)
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    if not user:
+        # 為了安全，不要提示「使用者不存在」，統一說「憑證錯誤」
+        return jsonify({ "error": "無效的憑證" }), 401 # 401 代表 "Unauthorized"
 
-    # 6. 建立一個新的 User 物件
-    new_user = User(
-        username=username,
-        email=email,
-        password_hash=hashed_password
-    )
+    # 4. [關鍵] 檢查密碼是否正確
+    # bcrypt.check_password_hash() 會比較：
+    # (資料庫中的雜湊值, 使用者這次輸入的明碼)
+    is_password_correct = bcrypt.check_password_hash(user.password_hash, password)
 
-    # 7. [關鍵] 將新使用者寫入資料庫
-    try:
-        db.session.add(new_user)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback() # 如果出錯，就回復
-        return jsonify({ "error": "資料庫儲存失敗", "details": str(e) }), 500
+    if not is_password_correct:
+        return jsonify({ "error": "無效的憑證" }), 401
 
-    # 8. 回傳成功的訊息
+    # 5. [成功] 產生 JWT Token
+    # "identity" 參數是告訴 JWT 這個 Token 是屬於 "誰" 的
+    # 我們把 user.id 存進去，方便未來使用
+    access_token = create_access_token(identity=user.id)
+
+    # 6. 回傳 Token
     return jsonify({
-        "message": "使用者註冊成功！",
+        "message": "登入成功！",
+        "access_token": access_token,
         "user": {
-            "id": new_user.id,
-            "username": new_user.username,
-            "email": new_user.email
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
         }
-    }), 201 # 201 代表 "Created" (已建立)
+    }), 200 # 200 代表 "OK"
