@@ -1,37 +1,45 @@
 from flask import Flask, jsonify
-from extensions import db  # 匯入我們在 extensions.py 宣告的 db
-from models import User    # 匯入我們剛建立的 User 模型
+from extensions import db, bcrypt, jwt # <-- 1. 匯入新工具
+from models import User
 import os
 from dotenv import load_dotenv
 
+# 匯入我們的新 API 藍圖
+from auth import auth_bp # <-- 2. 匯入 API 檔案
+
 def create_app():
-    # 1. 讀取 .env 檔案中的「保險箱」
     load_dotenv()
 
     app = Flask(__name__)
 
-    # 2. 從「保險箱」讀取資料庫連線設定
+    # --- 設定資料庫 ---
     db_url = os.getenv('DATABASE_URL')
     if not db_url:
         raise ValueError("DATABASE_URL 沒設定在 .env 檔案中")
-
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # 關閉一個警告
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # 3. 把 Flask App 和 db「綁定」在一起 (初始化)
+    # --- 3. 設定 JWT 密鑰 ---
+    jwt_secret = os.getenv('JWT_SECRET_KEY')
+    if not jwt_secret:
+        raise ValueError("JWT_SECRET_KEY 沒設定在 .env 檔案中")
+    app.config['JWT_SECRET_KEY'] = jwt_secret
+
+    # --- 4. 初始化所有工具 ---
     db.init_app(app)
+    bcrypt.init_app(app)
+    jwt.init_app(app)
 
-    # --- 4. 註冊你的 API 路由 ---
+    # --- 註冊 API 路由 ---
     @app.route("/")
     def get_hello_world():
-        return jsonify({ "message": "Hello, World! 階段二成功了!" })
+        return jsonify({ "message": "Hello, World! 階段三成功了!" })
 
-    # (我們未來會在這裡加上 /register, /login...)
+    # --- 5. 註冊我們的 API 藍圖 ---
+    app.register_blueprint(auth_bp) # 這會掛載 auth.py 裡所有的路由
 
-    # --- 5. 回傳建立好的 app ---
     return app
 
-# --- 這是新的啟動方式 ---
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
