@@ -48,3 +48,28 @@ class Course(db.Model):
 
     def __repr__(self):
         return f'<Course {self.name}>'
+# (請貼在 Course 類別的下面)
+
+class Booking(db.Model):
+    __tablename__ = 'bookings'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # --- [關鍵] 建立「關聯」(Foreign Key) ---
+
+    # 建立一個連到 "users" 表格 "id" 欄位的關聯
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # 建立一個連到 "courses" 表格 "id" 欄位的關聯
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
+
+    # 建立預約時的日期
+    booking_date = db.Column(db.DateTime, server_default=db.func.now()) # 預設為現在時間
+
+    # --- [選配] 建立「反向關聯」 ---
+    # 這能讓我們未來可以透過 user.bookings 或 course.bookings 來查詢
+    user = db.relationship('User', backref=db.backref('bookings', lazy=True))
+    course = db.relationship('Course', backref=db.backref('bookings', lazy=True))
+
+    def __repr__(self):
+        return f'<Booking user_id={self.user_id} course_id={self.course_id}>'
