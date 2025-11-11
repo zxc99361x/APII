@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # 匯入兩個 API 藍圖
 from auth import auth_bp
 from course import course_bp
-
+from booking import booking_bp
 def create_app():
     load_dotenv()
 
@@ -39,7 +39,7 @@ def create_app():
     # --- 註冊我們的 API 藍圖 ---
     app.register_blueprint(auth_bp)   # 載入 auth.py
     app.register_blueprint(course_bp) # 載入 course.py
-
+    app.register_blueprint(booking_bp)
     return app
 
 if __name__ == "__main__":
