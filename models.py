@@ -19,6 +19,7 @@ class User(db.Model):
 
     # 我們不存密碼原文，只存「加密後的雜湊值」
     password_hash = db.Column(db.String(128), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
     # 這是一個輔助函式，當你 print(user) 時會顯示有意義的資訊
     def __repr__(self):
